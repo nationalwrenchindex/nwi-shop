@@ -1,0 +1,129 @@
+@import "tailwindcss";
+
+/* NWI Shop runs on shop-floor tablets under bright light — the app surface is a
+   fixed light theme on purpose and does not follow the OS dark preference. The
+   navigation chrome is dark slate; the content area stays light and legible. */
+
+:root {
+  --background: #f1f5f9;
+  --foreground: #0f172a;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* --------------------------------------------------------------------------
+   Shared form + surface primitives. Generous hit targets (min 44px) so they
+   stay usable with gloves on a tablet.
+   -------------------------------------------------------------------------- */
+
+.nwi-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #475569;
+  margin-bottom: 0.375rem;
+}
+
+.nwi-input,
+.nwi-select {
+  display: block;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9375rem;
+  color: #0f172a;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  outline: none;
+}
+
+.nwi-select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, #64748b 50%),
+    linear-gradient(135deg, #64748b 50%, transparent 50%);
+  background-position: calc(100% - 18px) calc(50% + 2px), calc(100% - 13px) calc(50% + 2px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 2.25rem;
+}
+
+.nwi-input:focus,
+.nwi-select:focus {
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgb(15 23 42 / 0.12);
+}
+
+.nwi-input:disabled,
+.nwi-select:disabled {
+  background-color: #f1f5f9;
+  color: #94a3b8;
+}
+
+.nwi-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 1.125rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.nwi-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.nwi-btn-primary {
+  background-color: #0f172a;
+  color: #ffffff;
+}
+
+.nwi-btn-primary:hover:not(:disabled) {
+  background-color: #1e293b;
+}
+
+.nwi-btn-secondary {
+  background-color: #ffffff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.nwi-btn-secondary:hover:not(:disabled) {
+  background-color: #f8fafc;
+}
+
+.nwi-btn-danger {
+  background-color: #ffffff;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.nwi-btn-danger:hover:not(:disabled) {
+  background-color: #fef2f2;
+}
+
+.nwi-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+}
