@@ -1,8 +1,13 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { requirePermission } from '@/lib/auth'
-import { TIER_LABELS } from '@/lib/permissions'
-import { FOREMAN_AI_ADDON, SHOP_PLANS, canBuyForemanAi } from '@/lib/shop/billing'
+import { SHOP_TYPE_LABELS, TIER_LABELS } from '@/lib/permissions'
+import {
+  FOREMAN_AI_ADDON,
+  canBuyForemanAi,
+  planFor,
+  toolNamesFor,
+} from '@/lib/shop/billing'
 import { CHARTER_LIMIT } from '@/lib/shop/charter'
 import type { SubStatus } from '@/lib/types'
 import PortalButton from './_components/portal-button'
@@ -54,7 +59,8 @@ export default async function BillingPage({
 
   const sub = ctx.subscription
   const tier = sub?.tier ?? ctx.shop.subscription_tier
-  const plan = SHOP_PLANS[tier]
+  // Price follows (shop type, tier) — a full service shop is on its own book.
+  const plan = planFor(ctx.shopType, tier)
   const status: SubStatus = sub?.status ?? 'incomplete'
   const statusCopy = STATUS_COPY[status]
   const charter = sub?.is_charter_member === true
@@ -106,7 +112,14 @@ export default async function BillingPage({
       <section className="nwi-card p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">{TIER_LABELS[tier]}</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-semibold text-slate-900">
+                {TIER_LABELS[tier]}
+              </h2>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 ring-1 ring-inset ring-slate-200">
+                {SHOP_TYPE_LABELS[ctx.shopType]}
+              </span>
+            </div>
             <p className="mt-0.5 text-sm text-slate-600">{plan.tagline}</p>
           </div>
           <span
@@ -117,9 +130,15 @@ export default async function BillingPage({
         </div>
 
         <dl className="mt-5">
+          <Row label="Shop type">
+            {SHOP_TYPE_LABELS[ctx.shopType]}
+          </Row>
           <Row label="Plan">
             ${plan.price}
             <span className="font-normal text-slate-500">/mo</span>
+          </Row>
+          <Row label="Diagnostic tools">
+            <span className="font-normal text-slate-700">{toolNamesFor(ctx.shopType)}</span>
           </Row>
           <Row label="Foreman AI add-on">
             {hasForemanAi ? (

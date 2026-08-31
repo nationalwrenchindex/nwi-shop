@@ -1,5 +1,5 @@
-import { TIER_LIMITS } from '@/lib/permissions'
-import { SHOP_PLANS } from '@/lib/shop/billing'
+import { PUBLIC_SHOP_TYPES, SHOP_TYPE_LABELS, TIER_LIMITS } from '@/lib/permissions'
+import { PUBLIC_PLANS, toolNamesFor } from '@/lib/shop/billing'
 
 /**
  * Competitor comparison.
@@ -21,19 +21,32 @@ interface Row {
   shopmonkey: Cell
 }
 
+/**
+ * One row per publicly offered shop type, naming the diagnostic tools that type
+ * unlocks. Generated from PUBLIC_SHOP_TYPES, so an unlisted type can never leak
+ * onto this page by someone adding a row here.
+ */
+const SHOP_TYPE_ROWS: Row[] = PUBLIC_SHOP_TYPES.map((type) => ({
+  label: `${SHOP_TYPE_LABELS[type]} diagnostic tools`,
+  nwi: `${toolNamesFor(type)} — included, no extra charge`,
+  fullbay: 'Varies',
+  shopmonkey: 'Varies',
+}))
+
 const ROWS: Row[] = [
   {
     label: 'Published flat monthly price',
-    nwi: `From $${SHOP_PLANS.starter.price}/mo`,
+    nwi: `From $${PUBLIC_PLANS.starter.price}/mo`,
     fullbay: 'Quote required',
     shopmonkey: 'Quote required',
   },
   {
     label: 'Entry price point',
-    nwi: `$${SHOP_PLANS.starter.price}/mo, listed publicly`,
+    nwi: `$${PUBLIC_PLANS.starter.price}/mo, listed publicly`,
     fullbay: 'Starts well above ours',
     shopmonkey: 'Starts well above ours',
   },
+  ...SHOP_TYPE_ROWS,
   { label: 'Visual bay job board',              nwi: true, fullbay: true,  shopmonkey: true },
   { label: 'Tech timeclock included',           nwi: true, fullbay: true,  shopmonkey: true },
   {
@@ -50,7 +63,7 @@ const ROWS: Row[] = [
   },
   {
     label: 'Unlimited techs and bays',
-    nwi: `Included on ${SHOP_PLANS.elite.label} at $${SHOP_PLANS.elite.price}/mo`,
+    nwi: `Included on ${PUBLIC_PLANS.elite.label} at $${PUBLIC_PLANS.elite.price}/mo`,
     fullbay: 'Priced per tech',
     shopmonkey: 'Priced per user',
   },

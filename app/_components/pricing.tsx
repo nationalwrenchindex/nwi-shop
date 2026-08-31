@@ -1,13 +1,26 @@
 import Link from 'next/link'
-import { FOREMAN_AI_ADDON, SHOP_PLAN_LIST, SHOP_PLANS } from '@/lib/shop/billing'
+import { PUBLIC_SHOP_TYPES, SHOP_TYPE_LABELS } from '@/lib/permissions'
+import {
+  FOREMAN_AI_ADDON,
+  PUBLIC_PLANS,
+  PUBLIC_PLAN_LIST,
+  toolNamesFor,
+} from '@/lib/shop/billing'
 import { CHARTER_LIMIT } from '@/lib/shop/charter'
 
 /**
- * Pricing cards. Every number here comes from SHOP_PLANS / FOREMAN_AI_ADDON,
- * which read TIER_PRICES and TIER_LIMITS — the price is never written twice.
+ * Pricing cards. Every number here comes from PUBLIC_PLAN_LIST /
+ * FOREMAN_AI_ADDON, which read priceFor() and TIER_LIMITS — the price is never
+ * written twice.
+ *
+ * PUBLIC_PLAN_LIST is the shared light/heavy duty price book, which is the only
+ * one quoted publicly: light and heavy duty cost the same, so one set of cards
+ * covers both, and the tools each type unlocks are listed under the cards from
+ * PUBLIC_SHOP_TYPES.
  *
  * Charter copy appears only when `slotsRemaining > 0`. At 0 the callouts vanish
- * completely rather than degrading into "0 spots left".
+ * completely rather than degrading into "0 spots left". Charter applies to every
+ * shop type — no type condition anywhere.
  */
 export default function Pricing({ slotsRemaining }: { slotsRemaining: number }) {
   const charterOpen = slotsRemaining > 0
@@ -42,7 +55,7 @@ export default function Pricing({ slotsRemaining }: { slotsRemaining: number }) 
         ) : null}
 
         <div className="mt-10 grid gap-6 lg:grid-cols-3">
-          {SHOP_PLAN_LIST.map((plan) => {
+          {PUBLIC_PLAN_LIST.map((plan) => {
             const featured = plan.highlight
             return (
               <div
@@ -98,7 +111,7 @@ export default function Pricing({ slotsRemaining }: { slotsRemaining: number }) 
                 <ul
                   className={`mt-7 flex-1 space-y-3 text-sm ${featured ? 'text-slate-300' : 'text-slate-700'}`}
                 >
-                  {plan.features.map((feature) => (
+                  {plan.sharedFeatures.map((feature) => (
                     <li key={feature} className="flex gap-3">
                       <span
                         aria-hidden
@@ -143,6 +156,34 @@ export default function Pricing({ slotsRemaining }: { slotsRemaining: number }) 
           })}
         </div>
 
+        {/*
+          Which diagnostic tools come with which kind of shop. Same price either
+          way, so this sits under the cards rather than splitting the grid in
+          two. Driven by PUBLIC_SHOP_TYPES + toolNamesFor(), so it lists exactly
+          the types we sell publicly and nothing else.
+        */}
+        <div className="mt-8 grid gap-4 sm:grid-cols-2">
+          {PUBLIC_SHOP_TYPES.map((type) => (
+            <div key={type} className="rounded-2xl border border-slate-200 bg-white p-6">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h3 className="text-base font-semibold text-slate-950">
+                  {SHOP_TYPE_LABELS[type]} shops
+                </h3>
+                <span className="text-xs font-bold uppercase tracking-[0.12em] text-amber-600">
+                  Same price
+                </span>
+              </div>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                Diagnostic tools on every plan: {toolNamesFor(type)}.
+              </p>
+              <p className="mt-3 text-sm text-slate-500">
+                Choose {SHOP_TYPE_LABELS[type]} at signup and these unlock for your
+                whole crew.
+              </p>
+            </div>
+          ))}
+        </div>
+
         {/* --- Foreman AI: its own product, presented on its own --- */}
         <div className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-white p-7">
           <div className="flex flex-wrap items-start justify-between gap-6">
@@ -179,7 +220,7 @@ export default function Pricing({ slotsRemaining }: { slotsRemaining: number }) 
                 Billed separately
               </p>
               <Link
-                href={`/shop/signup?plan=${SHOP_PLANS.elite.tier}`}
+                href={`/shop/signup?plan=${PUBLIC_PLANS.elite.tier}`}
                 className="mt-4 inline-block rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-950 hover:border-slate-950"
               >
                 Add with Elite

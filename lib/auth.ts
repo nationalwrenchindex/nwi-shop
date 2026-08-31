@@ -4,8 +4,20 @@
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { permissionsFor, type Permissions } from '@/lib/permissions'
-import type { ShopProfile, ShopRole, ShopSubscription, ShopTech } from '@/lib/types'
+import {
+  featuresFor,
+  hasFeature,
+  permissionsFor,
+  type Permissions,
+  type ShopFeature,
+} from '@/lib/permissions'
+import type {
+  ShopProfile,
+  ShopRole,
+  ShopSubscription,
+  ShopTech,
+  ShopType,
+} from '@/lib/types'
 
 export interface ShopContext {
   userId:       string
@@ -15,6 +27,10 @@ export interface ShopContext {
   subscription: ShopSubscription | null
   role:         ShopRole
   permissions:  Permissions
+  /** What kind of work the shop does — gates the diagnostic tools. */
+  shopType:     ShopType
+  /** Diagnostic tools this shop's type unlocks. */
+  features:     ShopFeature[]
 }
 
 /**
@@ -58,6 +74,10 @@ export async function getShopContext(): Promise<ShopContext | null> {
     subscription: subscription ?? null,
     role:        tech.role,
     permissions: permissionsFor(tech.role),
+    // A shop row written before the shop_type migration has no value; treat it
+    // as light duty rather than crashing or silently unlocking the HD tools.
+    shopType:    shop.shop_type ?? 'ld',
+    features:    featuresFor(shop.shop_type ?? 'ld'),
   }
 }
 
@@ -74,6 +94,17 @@ export async function requirePermission(
 ): Promise<ShopContext> {
   const ctx = await requireShop()
   if (!ctx.permissions[permission]) redirect('/shop')
+  return ctx
+}
+
+/**
+ * Server-component guard for a diagnostic tool. Orthogonal to permissions: this
+ * asks what the SHOP bought, not what the person may do. A manager at an LD shop
+ * is refused the HD tools.
+ */
+export async function requireFeature(feature: ShopFeature): Promise<ShopContext> {
+  const ctx = await requireShop()
+  if (!hasFeature(ctx.shopType, feature)) redirect('/shop')
   return ctx
 }
 
@@ -105,4 +136,27 @@ export async function apiContext(
     }
   }
   return { ctx, error: null }
+}
+
+/**
+ * Route-handler guard for a diagnostic tool, optionally combined with a
+ * permission. Kept separate from apiContext so the two gates stay legible at
+ * the call site: one is "what the shop bought", the other "what the person may do".
+ */
+export async function apiFeature(
+  feature: ShopFeature,
+  permission?: keyof Permissions,
+): Promise<{ ctx: ShopContext; error: null } | { ctx: null; error: Response }> {
+  const result = await apiContext(permission)
+  if (result.error) return result
+  if (!hasFeature(result.ctx.shopType, feature)) {
+    return {
+      ctx: null,
+      error: Response.json(
+        { error: 'This tool is not included in your shop type.' },
+        { status: 403 },
+      ),
+    }
+  }
+  return result
 }

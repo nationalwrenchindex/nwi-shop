@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { PRODUCT_NAME } from '@/lib/branding'
-import { SHOP_PLANS } from '@/lib/shop/billing'
+import { PUBLIC_SHOP_TYPES, SHOP_TYPE_LABELS } from '@/lib/permissions'
+import { PUBLIC_PLANS } from '@/lib/shop/billing'
 
 export default function Hero({ slotsRemaining }: { slotsRemaining: number }) {
   return (
@@ -59,6 +60,20 @@ export default function Hero({ slotsRemaining }: { slotsRemaining: number }) {
           wrenches, for the people still turning them.
         </p>
 
+        {/* The public shop types, straight from PUBLIC_SHOP_TYPES — anything
+            unlisted stays off this page by construction. */}
+        <div className="mt-6 flex flex-wrap items-center gap-2 text-sm text-slate-400">
+          {PUBLIC_SHOP_TYPES.map((type) => (
+            <span
+              key={type}
+              className="rounded-full border border-white/20 px-3 py-1 font-semibold text-slate-200"
+            >
+              {SHOP_TYPE_LABELS[type]}
+            </span>
+          ))}
+          <span>— same price, and the diagnostic tools follow the shop you pick.</span>
+        </div>
+
         <div className="mt-10 flex flex-wrap items-center gap-4">
           <Link
             href="/shop/signup"
@@ -70,7 +85,7 @@ export default function Hero({ slotsRemaining }: { slotsRemaining: number }) {
             href="#pricing"
             className="rounded-xl border border-white/20 px-7 py-4 text-base font-semibold text-white transition hover:border-white/50"
           >
-            See pricing — from ${SHOP_PLANS.starter.price}/mo
+            See pricing — from ${PUBLIC_PLANS.starter.price}/mo
           </Link>
         </div>
 

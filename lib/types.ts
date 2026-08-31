@@ -4,6 +4,15 @@
 export type ShopRole = 'manager' | 'foreman' | 'tech'
 export type ShopTier = 'starter' | 'pro' | 'elite'
 
+/**
+ * What kind of work the shop does. Drives which diagnostic tools are reachable
+ * and which price book applies — see lib/permissions.ts.
+ *   ld            light duty
+ *   hd            heavy duty
+ *   full_service  both, priced higher
+ */
+export type ShopType = 'ld' | 'hd' | 'full_service'
+
 export type BayType   = 'lift' | 'flat' | 'alignment' | 'other'
 export type BayStatus = 'available' | 'occupied' | 'out_of_service'
 
@@ -34,6 +43,7 @@ export interface ShopProfile {
   tax_rate:          number
   labor_rate:        number
   subscription_tier: ShopTier
+  shop_type:         ShopType
   created_at:        string
   updated_at:        string
 }

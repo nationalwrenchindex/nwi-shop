@@ -15,15 +15,27 @@
  * Safe to re-run: every product carries a `metadata.nwi_shop_plan` marker and the
  * script searches for that marker before creating anything. An existing product
  * is reused and its active monthly price reported instead of a duplicate being
- * created.
+ * created. The four original markers — starter, pro, elite, foreman_ai — already
+ * exist on the live account, so a re-run reuses them and only creates the three
+ * Full Service products.
  */
 
 import Stripe from 'stripe'
 
 // ---------------------------------------------------------------------------
 // Product catalog. Foreman AI is its OWN product, never a tier line item — see
-// the header of lib/shop/billing.ts. The dollar figures mirror TIER_PRICES /
-// FOREMAN_AI_PRICE in lib/permissions.ts.
+// the header of lib/shop/billing.ts. The dollar figures mirror
+// TIER_PRICES_BY_TYPE / FOREMAN_AI_PRICE in lib/permissions.ts, which stays the
+// source of truth — change them there first, then here.
+//
+// Light and heavy duty are the SAME purchase at the same price, so they share
+// the `starter` / `pro` / `elite` products and the STRIPE_PRICE_SHOP_* vars.
+// Full service is billed on its own higher price book and therefore needs its
+// own three products, markers and STRIPE_PRICE_SHOP_FS_* vars.
+//
+// NEVER rename or duplicate the `starter`, `pro`, `elite` and `foreman_ai`
+// markers: those four products already exist on the live Stripe account, and
+// the marker is the only thing that lets a re-run find and reuse them.
 // ---------------------------------------------------------------------------
 
 interface CatalogEntry {
@@ -61,6 +73,31 @@ const CATALOG: CatalogEntry[] = [
       'Unlimited techs, bays and mobile units. Full inventory, Fleet Pro integration, and eligibility to add Foreman AI as a separate add-on.',
     dollars: 299,
     envVar: 'STRIPE_PRICE_SHOP_ELITE',
+  },
+  // --- Full Service price book (unlisted; sold via /shop/signup?type=full_service)
+  {
+    marker: 'full_service_starter',
+    name: 'NWI Shop Full Service Starter',
+    description:
+      'Full Service shop: every light duty and heavy duty diagnostic tool on one account. Up to 3 techs, 2 bays and 1 mobile unit, with full inventory, visual bay job board, tech timeclock and professional invoicing.',
+    dollars: 159,
+    envVar: 'STRIPE_PRICE_SHOP_FS_STARTER',
+  },
+  {
+    marker: 'full_service_pro',
+    name: 'NWI Shop Full Service Pro',
+    description:
+      'Full Service shop: every light duty and heavy duty diagnostic tool on one account. Up to 8 techs, 6 bays and 3 mobile units, with full inventory, visual bay job board, tech timeclock and professional invoicing.',
+    dollars: 249,
+    envVar: 'STRIPE_PRICE_SHOP_FS_PRO',
+  },
+  {
+    marker: 'full_service_elite',
+    name: 'NWI Shop Full Service Elite',
+    description:
+      'Full Service shop: every light duty and heavy duty diagnostic tool on one account. Unlimited techs, bays and mobile units, Fleet Pro integration, and eligibility to add Foreman AI as a separate add-on.',
+    dollars: 349,
+    envVar: 'STRIPE_PRICE_SHOP_FS_ELITE',
   },
   {
     marker: 'foreman_ai',
@@ -169,7 +206,7 @@ async function main(): Promise<void> {
       note: created ? 'created' : 'already existed — reused',
     })
 
-    console.log(`  ${entry.name.padEnd(24)} $${entry.dollars}/mo  ${created ? 'created' : 'reused'}`)
+    console.log(`  ${entry.name.padEnd(34)} $${entry.dollars}/mo  ${created ? 'created' : 'reused'}`)
   }
 
   console.log('')
@@ -181,8 +218,10 @@ async function main(): Promise<void> {
     console.log(`${r.envVar}=${r.priceId}`)
   }
   console.log('')
-  console.log('  Reminder: Foreman AI is a SEPARATE product. Never add it to a')
-  console.log('  plan price — checkout attaches it as its own line item.')
+  console.log('  Reminder: Foreman AI is a SEPARATE product for every shop type.')
+  console.log('  Never add it to a plan price — checkout attaches it as its own')
+  console.log('  line item. The FS_* ids are the unlisted Full Service price book;')
+  console.log('  light and heavy duty both use the non-FS ids.')
   console.log('')
 }
 

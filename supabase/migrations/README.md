@@ -13,6 +13,7 @@ These are applied by hand: open the Supabase SQL editor, paste one file in, run 
 | 5 | `005_shop_inventory.sql` | `shop_inventory`, `shop_inventory_transactions` |
 | 6 | `006_shop_subscriptions.sql` | `shop_subscriptions`, `get_charter_slots_remaining()` |
 | 7 | `007_shop_rls.sql` | RLS helper functions, `shop_techs_safe`, grants, all 44 policies |
+| 8 | `008_shop_type.sql` | `shop_profiles.shop_type` (`ld` / `hd` / `full_service`) + its check constraint and index |
 
 The order is not optional. Later files add foreign keys to tables the earlier ones create, and two constraints are deliberately deferred: `shop_bays.current_job_id → shop_jobs` is added at the end of 003, and `shop_job_line_items.inventory_id → shop_inventory` is added in 005.
 

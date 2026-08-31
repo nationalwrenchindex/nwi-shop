@@ -2,21 +2,41 @@
 
 import { useState } from 'react'
 import {
+  FEATURE_LABELS,
+  FEATURES_BY_TYPE,
+  SHOP_TYPE_DESCRIPTIONS,
+  SHOP_TYPE_LABELS,
+} from '@/lib/permissions'
+import {
   FOREMAN_AI_ADDON,
-  SHOP_PLAN_LIST,
-  SHOP_PLANS,
   canBuyForemanAi,
+  planFor,
+  planListFor,
 } from '@/lib/shop/billing'
-import type { ShopTier } from '@/lib/types'
+import type { ShopTier, ShopType } from '@/lib/types'
 
 interface Props {
   initialTier: ShopTier
+  /** Preselected shop type — from `?type=`, else the first offered type. */
+  initialShopType: ShopType
+  /** The types this visitor may choose. Built by the page, never hardcoded. */
+  shopTypes: ShopType[]
+  /** True when the visitor arrived on the unlisted `?type=full_service` link. */
+  fullServiceUnlocked: boolean
   /** 0 hides every charter callout — see getCharterSlotsRemaining(). */
   charterSlots: number
   canceled: boolean
 }
 
-export default function SignupForm({ initialTier, charterSlots, canceled }: Props) {
+export default function SignupForm({
+  initialTier,
+  initialShopType,
+  shopTypes,
+  fullServiceUnlocked,
+  charterSlots,
+  canceled,
+}: Props) {
+  const [shopType, setShopType] = useState<ShopType>(initialShopType)
   const [tier, setTier] = useState<ShopTier>(initialTier)
   const [businessName, setBusinessName] = useState('')
   const [ownerName, setOwnerName] = useState('')
@@ -27,8 +47,13 @@ export default function SignupForm({ initialTier, charterSlots, canceled }: Prop
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const plan = SHOP_PLANS[tier]
-  // Only Elite may add Foreman AI, and even there it is a separate product.
+  // Price and plan copy both follow the selected type, so switching type
+  // re-prices all three cards from the right price book.
+  const planOptions = planListFor(shopType)
+  const plan = planFor(shopType, tier)
+  const tools = FEATURES_BY_TYPE[shopType]
+  // Only Elite may add Foreman AI, and even there it is a separate product —
+  // for every shop type, full service included.
   const addonAvailable = canBuyForemanAi(tier)
   const addonSelected = addonAvailable && foremanAi
   const monthlyTotal = plan.price + (addonSelected ? FOREMAN_AI_ADDON.price : 0)
@@ -49,6 +74,7 @@ export default function SignupForm({ initialTier, charterSlots, canceled }: Prop
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           plan: tier,
+          shop_type: shopType,
           businessName: businessName.trim(),
           ownerName: ownerName.trim(),
           email: email.trim(),
@@ -81,14 +107,83 @@ export default function SignupForm({ initialTier, charterSlots, canceled }: Prop
         </p>
       ) : null}
 
-      {/* ---------------- Step 1 — plan ---------------- */}
+      {/* ---------------- Step 1 — shop type ---------------- */}
       <section>
         <h2 className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
-          Step 1 — Choose your plan
+          Step 1 — What does your shop work on?
         </h2>
 
         <div className="mt-4 grid gap-3">
-          {SHOP_PLAN_LIST.map((option) => {
+          {shopTypes.map((option) => {
+            const selected = option === shopType
+            return (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setShopType(option)}
+                aria-pressed={selected}
+                className={`rounded-xl border p-4 text-left transition ${
+                  selected
+                    ? 'border-slate-900 bg-slate-900 text-white shadow-lg'
+                    : 'border-slate-200 bg-white hover:border-slate-400'
+                }`}
+              >
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="text-base font-semibold">
+                    {SHOP_TYPE_LABELS[option]}
+                  </span>
+                  {option === 'full_service' ? (
+                    <span
+                      className={`rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
+                        selected ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      By invitation
+                    </span>
+                  ) : null}
+                </span>
+                <p
+                  className={`mt-1 text-sm ${selected ? 'text-slate-300' : 'text-slate-600'}`}
+                >
+                  {SHOP_TYPE_DESCRIPTIONS[option]}
+                </p>
+              </button>
+            )
+          })}
+        </div>
+
+        {fullServiceUnlocked ? (
+          <p className="mt-3 text-sm text-slate-500">
+            {SHOP_TYPE_LABELS.full_service} is not listed on our public pricing page —
+            you have it here because you were sent this link.
+          </p>
+        ) : null}
+
+        <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
+          <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
+            Diagnostic tools included
+          </p>
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {tools.map((feature) => (
+              <li
+                key={feature}
+                className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-800"
+              >
+                {FEATURE_LABELS[feature]}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* ---------------- Step 2 — plan ---------------- */}
+      <section>
+        <h2 className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+          Step 2 — Choose your plan
+        </h2>
+
+        <div className="mt-4 grid gap-3">
+          {planOptions.map((option) => {
             const selected = option.tier === tier
             return (
               <button
@@ -116,7 +211,7 @@ export default function SignupForm({ initialTier, charterSlots, canceled }: Prop
                 <p
                   className={`mt-1 text-sm ${selected ? 'text-slate-300' : 'text-slate-600'}`}
                 >
-                  {option.features.slice(0, 3).join(' · ')}
+                  {option.sharedFeatures.slice(0, 3).join(' · ')}
                 </p>
               </button>
             )
@@ -152,15 +247,15 @@ export default function SignupForm({ initialTier, charterSlots, canceled }: Prop
         ) : (
           <p className="mt-4 text-sm text-slate-500">
             {FOREMAN_AI_ADDON.label} is a separate ${FOREMAN_AI_ADDON.price}/mo add-on,
-            available on {SHOP_PLANS.elite.label}.
+            available on {planFor(shopType, 'elite').label}.
           </p>
         )}
       </section>
 
-      {/* ---------------- Step 2 — account ---------------- */}
+      {/* ---------------- Step 3 — account ---------------- */}
       <section>
         <h2 className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
-          Step 2 — Your shop
+          Step 3 — Your shop
         </h2>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -244,10 +339,12 @@ export default function SignupForm({ initialTier, charterSlots, canceled }: Prop
         </div>
       </section>
 
-      {/* ---------------- Step 3 — checkout ---------------- */}
+      {/* ---------------- Step 4 — checkout ---------------- */}
       <section className="rounded-xl border border-slate-200 bg-white p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <span className="text-sm text-slate-600">{plan.label}</span>
+          <span className="text-sm text-slate-600">
+            {plan.label} · {SHOP_TYPE_LABELS[shopType]}
+          </span>
           <span className="text-sm font-semibold text-slate-900">${plan.price}/mo</span>
         </div>
         {addonSelected ? (

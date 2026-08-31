@@ -1,3 +1,6 @@
+import { PUBLIC_SHOP_TYPES, SHOP_TYPE_LABELS } from '@/lib/permissions'
+import { toolNamesFor } from '@/lib/shop/billing'
+
 interface Feature {
   eyebrow: string
   title: string
@@ -45,6 +48,16 @@ const FEATURES: Feature[] = [
       'Your logo, labor rate and tax rate',
       'Itemized labor and parts, ready to send',
     ],
+  },
+  {
+    eyebrow: 'Diagnostics',
+    title: 'The tools match the trucks in your bays.',
+    body: 'Pick light duty or heavy duty when you sign up and the diagnostic tools come with it — on every plan, at the same price. Heavy duty shops get the trailer, reefer and compliance side too, not a car-shop tool with a truck label on it.',
+    // Generated from PUBLIC_SHOP_TYPES so this section can only ever name the
+    // types we sell publicly — nothing unlisted can leak onto the landing page.
+    points: PUBLIC_SHOP_TYPES.map(
+      (type) => `${SHOP_TYPE_LABELS[type]}: ${toolNamesFor(type)}`,
+    ),
   },
   {
     eyebrow: 'Fleet Pro integration',

@@ -20,9 +20,10 @@ import { headers } from 'next/headers'
 import type Stripe from 'stripe'
 import { isForemanAiPriceId, tierFromPriceId } from '@/lib/shop/billing'
 import { claimCharterSlot } from '@/lib/shop/charter'
+import { isShopType } from '@/lib/permissions'
 import { stripe } from '@/lib/stripe'
 import { createServiceClient } from '@/lib/supabase/service'
-import type { ShopTier, SubStatus } from '@/lib/types'
+import type { ShopTier, ShopType, SubStatus } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,12 +62,22 @@ function isoOrNull(seconds: number | null | undefined): string | null {
   return new Date(seconds * 1000).toISOString()
 }
 
-/** Reads the tier and add-on state off the subscription's actual line items. */
+/**
+ * Reads the tier, the price book and the add-on state off the subscription's
+ * actual line items.
+ *
+ * `priceBook` is whatever tierFromPriceId() resolved the plan price to. It is
+ * NOT the shop's type: LD and HD share one set of Stripe price ids, so that book
+ * comes back as 'ld' for either of them. Only 'full_service' identifies a type
+ * outright. resolveShopType() below turns this into something safe to persist.
+ */
 function readItems(subscription: Stripe.Subscription): {
   tier: ShopTier | null
+  priceBook: ShopType | null
   foremanAi: boolean
 } {
   let tier: ShopTier | null = null
+  let priceBook: ShopType | null = null
   let foremanAi = false
 
   for (const item of subscription.items.data) {
@@ -77,10 +88,13 @@ function readItems(subscription: Stripe.Subscription): {
       continue
     }
     const matched = tierFromPriceId(priceId)
-    if (matched) tier = matched
+    if (matched) {
+      tier = matched.tier
+      priceBook = matched.shopType
+    }
   }
 
-  return { tier, foremanAi }
+  return { tier, priceBook, foremanAi }
 }
 
 /** Falls back to metadata when the price ids are not configured in this env. */
@@ -88,6 +102,41 @@ function tierFromMetadata(metadata: Stripe.Metadata | null): ShopTier | null {
   const raw = metadata?.tier
   if (raw === 'starter' || raw === 'pro' || raw === 'elite') return raw
   return null
+}
+
+/** Checkout stamps the shop type it sold onto the subscription's metadata. */
+function shopTypeFromMetadata(metadata: Stripe.Metadata | null): ShopType | null {
+  const raw = metadata?.shop_type
+  return isShopType(raw) ? raw : null
+}
+
+/**
+ * What shop type this subscription actually proves, or null when it proves
+ * nothing and shop_profiles.shop_type must be left exactly as it is.
+ *
+ * The full service price book is bought by full service shops and nobody else,
+ * so it settles the question on its own. The shared book does not: it rules out
+ * full service but cannot tell light duty from heavy duty, because both are the
+ * same purchase at the same price id (see the header of lib/shop/billing.ts).
+ * Guessing there would silently strip an HD shop of its heavy duty tools on an
+ * unrelated Stripe event, so unless metadata names a concrete type we write
+ * nothing and leave the shop's own record — the authority — alone.
+ */
+function resolveShopType(
+  priceBook: ShopType | null,
+  metadata: Stripe.Metadata | null,
+): ShopType | null {
+  if (priceBook === 'full_service') return 'full_service'
+
+  const fromMetadata = shopTypeFromMetadata(metadata)
+
+  // No plan price id matched at all (unconfigured env) — metadata is all there is.
+  if (priceBook === null) return fromMetadata
+
+  // Shared LD/HD book. Only metadata can say which of the two it is, and
+  // metadata claiming full service contradicts what is being paid for, so it
+  // loses to the price.
+  return fromMetadata === 'ld' || fromMetadata === 'hd' ? fromMetadata : null
 }
 
 async function shopIdForSubscription(
@@ -120,6 +169,8 @@ async function upsertSubscription(
     customerId: string | null
     subscriptionId: string | null
     tier: ShopTier
+    /** null when the subscription identifies no type — see resolveShopType. */
+    shopType: ShopType | null
     status: SubStatus
     foremanAi: boolean
     currentPeriodEnd: string | null
@@ -140,11 +191,18 @@ async function upsertSubscription(
     { onConflict: 'shop_id' },
   )
 
-  // Keep the shop's denormalized tier in step so the app gates correctly.
-  await supabase
-    .from('shop_profiles')
-    .update({ subscription_tier: params.tier })
-    .eq('id', params.shopId)
+  // Keep the shop's denormalized tier — and its type, when the subscription
+  // identified one — in step, so the app gates correctly and a shop that
+  // upgrades or changes plan keeps its type matching what it actually pays for.
+  // shop_type is omitted from the update rather than written as null when
+  // nothing was proven: that column is what requireFeature() reads, and blanking
+  // it would take a paying shop's diagnostic tools away.
+  const profileUpdate: { subscription_tier: ShopTier; shop_type?: ShopType } = {
+    subscription_tier: params.tier,
+  }
+  if (params.shopType) profileUpdate.shop_type = params.shopType
+
+  await supabase.from('shop_profiles').update(profileUpdate).eq('id', params.shopId)
 }
 
 async function handleSubscription(
@@ -156,8 +214,9 @@ async function handleSubscription(
     (await shopIdForSubscription(supabase, subscription)) ?? fallbackShopId ?? null
   if (!shopId) return
 
-  const { tier: tierFromItems, foremanAi } = readItems(subscription)
+  const { tier: tierFromItems, priceBook, foremanAi } = readItems(subscription)
   const tier = tierFromItems ?? tierFromMetadata(subscription.metadata) ?? 'starter'
+  const shopType = resolveShopType(priceBook, subscription.metadata)
   const status = toSubStatus(subscription.status)
 
   const customerId =
@@ -170,6 +229,7 @@ async function handleSubscription(
     customerId,
     subscriptionId: subscription.id,
     tier,
+    shopType,
     status,
     foremanAi,
     currentPeriodEnd: isoOrNull(subscription.current_period_end),
@@ -177,6 +237,8 @@ async function handleSubscription(
 
   // A charter spot is only assigned once the subscription is actually live.
   // claimCharterSlot() is a no-op when the 50 are gone, and never un-sets it.
+  // The 50 slots are shared across every shop type — light duty, heavy duty and
+  // full service all compete for them. Never add a shop type condition here.
   if (isActiveStatus(status)) {
     await claimCharterSlot(shopId)
   }

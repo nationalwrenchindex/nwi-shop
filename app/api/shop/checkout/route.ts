@@ -5,18 +5,22 @@
 
 import { NextResponse } from 'next/server'
 import { APP_URL } from '@/lib/branding'
+import { SHOP_TYPE_LABELS, isShopType } from '@/lib/permissions'
 import {
   SHOP_PLANS,
   canBuyForemanAi,
   foremanAiPriceId,
   parseTier,
+  planFor,
   priceIdFor,
 } from '@/lib/shop/billing'
 import { stripe } from '@/lib/stripe'
 import { createServiceClient } from '@/lib/supabase/service'
+import type { ShopType } from '@/lib/types'
 
 interface CheckoutBody {
   plan?: unknown
+  shop_type?: unknown
   businessName?: unknown
   ownerName?: unknown
   email?: unknown
@@ -51,6 +55,21 @@ export async function POST(request: Request) {
   const tier = parseTier(str(body.plan))
   if (!tier) return bad('Choose a plan to continue.')
 
+  // Shop type decides both the price book and which diagnostic tools unlock.
+  // Any valid ShopType is accepted, full service included. The unlisted
+  // /shop/signup?type=full_service link is a MARKETING device, not a security
+  // boundary — the server has no way to know which link a browser arrived from,
+  // and there is nothing to protect here: full service costs more, not less.
+  // Anything that must actually be gated is gated by shop_type in RLS and by
+  // requireFeature() on the tools themselves.
+  const rawShopType = str(body.shop_type)
+  if (rawShopType !== '' && !isShopType(rawShopType)) {
+    return bad('Choose the kind of work your shop does to continue.')
+  }
+  // Absent means light duty — the default an older client sends nothing for.
+  const shopType: ShopType = isShopType(rawShopType) ? rawShopType : 'ld'
+  const plan = planFor(shopType, tier)
+
   const businessName = str(body.businessName)
   const ownerName = str(body.ownerName)
   const email = str(body.email).toLowerCase()
@@ -68,16 +87,18 @@ export async function POST(request: Request) {
   // bought something they did not.
   if (wantsForemanAi && !canBuyForemanAi(tier)) {
     return bad(
-      `Foreman AI is an add-on available on ${SHOP_PLANS.elite.label} only. It is never included in a plan.`,
+      `Foreman AI is an add-on available on ${SHOP_PLANS[shopType].elite.label} only. It is never included in a plan.`,
     )
   }
 
   // An unset price env var means this plan simply is not purchasable yet. Fail
-  // here with a readable message instead of sending Stripe an empty price.
-  const planPriceId = priceIdFor(tier)
+  // here with a readable message instead of sending Stripe an empty price. Full
+  // service reads its own STRIPE_PRICE_SHOP_FS_* vars, so it can be unavailable
+  // while the shared LD/HD plans are live.
+  const planPriceId = priceIdFor(shopType, tier)
   if (!planPriceId) {
     return bad(
-      `${SHOP_PLANS[tier].label} is not available for purchase right now. Please contact support.`,
+      `${plan.label} for a ${SHOP_TYPE_LABELS[shopType]} shop is not available for purchase right now. Please contact support.`,
       503,
     )
   }
@@ -125,6 +146,7 @@ export async function POST(request: Request) {
       email,
       phone: phone || null,
       subscription_tier: tier,
+      shop_type: shopType,
     })
     .select('id')
     .single<{ id: string }>()
@@ -171,18 +193,22 @@ export async function POST(request: Request) {
       metadata: {
         shop_id: shop.id,
         tier,
+        shop_type: shopType,
         foreman_ai: addonPriceId ? 'true' : 'false',
       },
       subscription_data: {
         metadata: {
           shop_id: shop.id,
           tier,
+          shop_type: shopType,
           foreman_ai: addonPriceId ? 'true' : 'false',
         },
       },
       allow_promotion_codes: true,
       success_url: `${APP_URL}/shop/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${APP_URL}/shop/signup?plan=${tier}&canceled=1`,
+      // Carry the type back so a canceled full service checkout returns to the
+      // full service form rather than dropping the visitor onto the LD/HD one.
+      cancel_url: `${APP_URL}/shop/signup?plan=${tier}&type=${shopType}&canceled=1`,
     })
 
     if (!session.url) {

@@ -13,6 +13,10 @@ export default async function ShopLayout({ children }: LayoutProps<'/shop'>) {
   const items: NavItem[] = [
     { href: '/shop', label: 'Dashboard' },
     { href: '/shop/jobs', label: 'Job Board' },
+    // Diagnostics is gated by the shop's TYPE, not by role — every role at an HD
+    // shop reaches the HD tools, and the index only lists what that type unlocks.
+    // Nothing here is permission-filtered on purpose.
+    { href: '/shop/tools', label: 'Diagnostics' },
     { href: '/shop/timeclock', label: 'Timeclock' },
   ]
   if (permissions.manageBays) items.push({ href: '/shop/bays', label: 'Bays' })
