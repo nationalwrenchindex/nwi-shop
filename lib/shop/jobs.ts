@@ -250,7 +250,11 @@ export function summarizeLineItems(
   }
 
   const subtotal = round2(laborTotal + partsTotal)
-  const tax = taxAmount(subtotal, taxRate)
+  // Tax applies to PARTS ONLY — labor is untaxed in most states. This must stay
+  // in step with lib/shop/invoice.ts and lib/shop/quickbooks.ts: they are three
+  // views of the same money, and a job board card that disagrees with the
+  // invoice the customer receives is a support call.
+  const tax = taxAmount(partsTotal, taxRate)
   const totals: JobTotals = {
     laborHours: round2(laborHours),
     laborTotal: round2(laborTotal),

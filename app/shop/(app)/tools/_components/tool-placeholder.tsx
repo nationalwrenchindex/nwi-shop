@@ -59,7 +59,7 @@ export default function ToolPlaceholder({ feature }: { feature: ShopFeature }) {
 
       <div>
         <Link href="/shop/tools" className="nwi-btn nwi-btn-secondary">
-          Back to Diagnostics
+          Back to Tools
         </Link>
       </div>
     </div>

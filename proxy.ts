@@ -19,7 +19,21 @@ import { updateSession } from '@/lib/supabase/proxy'
  * they are how a shop that does not exist yet creates its first account, so they
  * must stay open.
  */
-const PUBLIC_PREFIXES = ['/auth', '/api/stripe', '/shop/signup', '/api/shop/checkout']
+const PUBLIC_PREFIXES = [
+  '/auth',
+  '/api/stripe',
+  '/shop/signup',
+  '/api/shop/checkout',
+  // Reached without a session by design: a customer clicking a review link or
+  // opening an invoice, Vercel firing a cron, and Vapi calling the phone webhook.
+  // These fall through the gate today only because they match no prefix at all —
+  // listing them makes that deliberate, so widening PROTECTED_PREFIXES later
+  // cannot silently kill live customer links or stop the shop phone booking.
+  '/r',
+  '/i',
+  '/api/cron',
+  '/api/vapi',
+]
 const PUBLIC_EXACT = new Set(['/', '/login'])
 
 /** Everything below these prefixes requires a session. */

@@ -1,5 +1,14 @@
 // Shared row + domain types for NWI Shop. Every feature area imports from here so
-// the six build areas agree on one shape of the database.
+// the build areas agree on one shape of the database.
+//
+// This file holds the CORE tables only — the ones more than one feature touches.
+// Feature-specific tables keep their row type next to the code that owns them,
+// so there is exactly one definition of each:
+//   shop_inspections                  lib/shop/inspections/types.ts
+//   shop_epa_log                      lib/shop/epa.ts
+//   shop_review_requests / _settings  lib/shop/torquewrench/types.ts
+//   shop_social_posts                 lib/shop/social.ts
+//   shop_foreman_settings / _calls    lib/shop/foreman/settings.ts
 
 export type ShopRole = 'manager' | 'foreman' | 'tech'
 export type ShopTier = 'starter' | 'pro' | 'elite'

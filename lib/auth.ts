@@ -5,8 +5,11 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import {
-  featuresFor,
+  availableFeatures,
+  featureBlock,
   hasFeature,
+  FEATURE_LABELS,
+  FEATURE_MIN_TIER,
   permissionsFor,
   type Permissions,
   type ShopFeature,
@@ -16,6 +19,7 @@ import type {
   ShopRole,
   ShopSubscription,
   ShopTech,
+  ShopTier,
   ShopType,
 } from '@/lib/types'
 
@@ -27,9 +31,11 @@ export interface ShopContext {
   subscription: ShopSubscription | null
   role:         ShopRole
   permissions:  Permissions
-  /** What kind of work the shop does — gates the diagnostic tools. */
+  /** What kind of work the shop does — gates which tools are relevant. */
   shopType:     ShopType
-  /** Diagnostic tools this shop's type unlocks. */
+  /** What the shop pays for — gates which tools are entitled. */
+  tier:         ShopTier
+  /** Tools reachable right now, after BOTH gates. */
   features:     ShopFeature[]
 }
 
@@ -66,6 +72,11 @@ export async function getShopContext(): Promise<ShopContext | null> {
     .eq('shop_id', tech.shop_id)
     .maybeSingle<ShopSubscription>()
 
+  // The subscription row is authoritative when present; the profile tier is the
+  // fallback for a shop that has not finished checkout.
+  const shopType = shop.shop_type ?? 'ld'
+  const tier = subscription?.tier ?? shop.subscription_tier ?? 'starter'
+
   return {
     userId:      user.id,
     email:       user.email ?? null,
@@ -76,8 +87,10 @@ export async function getShopContext(): Promise<ShopContext | null> {
     permissions: permissionsFor(tech.role),
     // A shop row written before the shop_type migration has no value; treat it
     // as light duty rather than crashing or silently unlocking the HD tools.
-    shopType:    shop.shop_type ?? 'ld',
-    features:    featuresFor(shop.shop_type ?? 'ld'),
+    shopType,
+    tier,
+    // Both gates applied: type decides relevance, tier decides entitlement.
+    features:    availableFeatures(shopType, tier),
   }
 }
 
@@ -104,7 +117,7 @@ export async function requirePermission(
  */
 export async function requireFeature(feature: ShopFeature): Promise<ShopContext> {
   const ctx = await requireShop()
-  if (!hasFeature(ctx.shopType, feature)) redirect('/shop')
+  if (!hasFeature(ctx.shopType, ctx.tier, feature)) redirect('/shop')
   return ctx
 }
 
@@ -149,14 +162,28 @@ export async function apiFeature(
 ): Promise<{ ctx: ShopContext; error: null } | { ctx: null; error: Response }> {
   const result = await apiContext(permission)
   if (result.error) return result
-  if (!hasFeature(result.ctx.shopType, feature)) {
+  if (!hasFeature(result.ctx.shopType, result.ctx.tier, feature)) {
     return {
       ctx: null,
       error: Response.json(
-        { error: 'This tool is not included in your shop type.' },
+        { error: featureErrorMessage(result.ctx.shopType, result.ctx.tier, feature) },
         { status: 403 },
       ),
     }
   }
   return result
+}
+
+/**
+ * Distinguishes "your shop type does not do this work" from "upgrade your plan".
+ * Kept out of apiFeature's happy path so the two gates stay legible.
+ */
+function featureErrorMessage(
+  shopType: ShopType,
+  tier: ShopTier,
+  feature: ShopFeature,
+): string {
+  return featureBlock(shopType, tier, feature) === 'tier_too_low'
+    ? `${FEATURE_LABELS[feature]} requires the ${FEATURE_MIN_TIER[feature]} plan or higher.`
+    : `${FEATURE_LABELS[feature]} is not included for your shop type.`
 }

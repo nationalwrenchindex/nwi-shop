@@ -13,10 +13,14 @@ export default async function ShopLayout({ children }: LayoutProps<'/shop'>) {
   const items: NavItem[] = [
     { href: '/shop', label: 'Dashboard' },
     { href: '/shop/jobs', label: 'Job Board' },
-    // Diagnostics is gated by the shop's TYPE, not by role — every role at an HD
-    // shop reaches the HD tools, and the index only lists what that type unlocks.
-    // Nothing here is permission-filtered on purpose.
-    { href: '/shop/tools', label: 'Diagnostics' },
+    // "Tools", not "Diagnostics": the catalog now spans review requests, social
+    // posts, inspections and the customer portal, and an LD shop reading
+    // "Diagnostics" would assume none of that is in there.
+    //
+    // Gated by the shop's TYPE and TIER, not by role — every role at an HD shop
+    // reaches the HD tools, and the index itself lists only what that type
+    // unlocks. Nothing here is permission-filtered on purpose.
+    { href: '/shop/tools', label: 'Tools' },
     { href: '/shop/timeclock', label: 'Timeclock' },
   ]
   if (permissions.manageBays) items.push({ href: '/shop/bays', label: 'Bays' })

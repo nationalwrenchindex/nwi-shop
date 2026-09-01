@@ -14,6 +14,7 @@ import {
   JOB_STATUS_ORDER,
   JOB_STATUS_LABELS,
 } from '@/lib/shop/jobs'
+import { canInvoice } from '@/lib/shop/invoice'
 import type { ShopBay, ShopTech } from '@/lib/types'
 import AddLaborForm from '../_components/add-labor-form'
 import AdvanceButton from '../_components/advance-button'
@@ -112,15 +113,28 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
           </div>
 
           {canDispatch && !job.voided && (
-            <AdvanceButton
-              jobId={job.id}
-              job={{
-                status:           job.status,
-                bay_id:           job.bay_id,
-                assigned_tech_id: job.assigned_tech_id,
-                voided:           job.voided,
-              }}
-            />
+            <div className="flex flex-col items-end gap-2">
+              <AdvanceButton
+                jobId={job.id}
+                job={{
+                  status:           job.status,
+                  bay_id:           job.bay_id,
+                  assigned_tech_id: job.assigned_tech_id,
+                  voided:           job.voided,
+                }}
+              />
+              {/* `canInvoice` is true for `completed` (convert) and for
+                  `invoiced` (view/reprint) - the same gate the POST route uses,
+                  so this link never offers what the API would refuse. */}
+              {canInvoice(job).ok && (
+                <Link
+                  href={`/shop/jobs/${job.id}/invoice`}
+                  className="nwi-btn nwi-btn-secondary"
+                >
+                  {job.status === 'invoiced' ? 'View invoice' : 'Create invoice'}
+                </Link>
+              )}
+            </div>
           )}
         </div>
 

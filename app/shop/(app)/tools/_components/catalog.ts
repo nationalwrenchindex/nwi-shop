@@ -69,4 +69,63 @@ export const TOOL_COPY: Record<ShopFeature, ToolCopy> = {
       'Keep completed inspections on file and pull one back up on request',
     ],
   },
+  aerial_inspections: {
+    description: 'ANSI A92 inspections for bucket trucks and aerial devices.',
+    planned: [
+      'Run a pre-use, frequent or annual inspection against the right checklist',
+      'Record deficiencies per item, with critical findings forcing a removal-from-service decision',
+      'Capture the inspector signature and certification number on the record',
+      'Produce a printable report that outlives the job it was found on',
+    ],
+  },
+  parts_reference: {
+    description: 'OEM cross-reference for reefer and truck parts.',
+    planned: [
+      'Cross an OEM part number to Baldwin, NAPA, Donaldson, Gates and others',
+      'Check supersessions before ordering a number that has been replaced',
+      'Pull the part straight onto the open job as a line item',
+    ],
+  },
+  torquewrench: {
+    description: 'Automatic review requests after a job is finished.',
+    planned: [
+      'Text the customer a review request once their job is completed',
+      'Route four and five star ratings to your Google review page',
+      'Route anything lower to you privately, before it becomes a public review',
+      'Never message a customer who has opted out',
+    ],
+  },
+  garage_sync: {
+    description: 'Push completed work to the free NWI Garage account your customer already owns.',
+    planned: [
+      'Post each invoiced job to the vehicle history the customer already owns',
+      'Invite a customer who has no account yet, prefilled with their vehicle',
+      'Give customers a permanent service record they keep even if they change shops',
+    ],
+  },
+  social_posts: {
+    description: 'Draft social posts about your shop from your own work.',
+    planned: [
+      'Generate a week of posts in your shop voice, not a generic template',
+      'Get a version sized for each platform',
+      'Review and edit every post before anything is published',
+    ],
+  },
+  foreman_ai: {
+    description: 'An AI receptionist that answers the shop phone.',
+    planned: [
+      'Answer calls when nobody can get to the phone',
+      'Quote your labor rate and hours from your own settings',
+      'Book the appointment straight onto the job board',
+      'Text you the details and the customer a confirmation',
+    ],
+  },
+  fleet_pro: {
+    description: 'Serve fleet customers with automatic service records.',
+    planned: [
+      'Post completed work to the unit history the fleet owner sees, automatically',
+      'Track PM schedules per unit and flag what is coming due',
+      'Give the fleet a read-only view of everything you have done for them',
+    ],
+  },
 }

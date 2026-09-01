@@ -11,6 +11,7 @@
 import type { NextRequest } from 'next/server'
 import { apiContext } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
+import { enqueueReviewRequest } from '@/lib/shop/torquewrench/enqueue'
 import {
   apiError,
   asNumber,
@@ -227,6 +228,20 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       .update({ status: 'occupied', current_job_id: job.id })
       .eq('id', nextBayId)
       .eq('shop_id', ctx.shop.id)
+  }
+
+  // ---- review request ------------------------------------------------------
+  // Finishing a job is what triggers TorqueWrench (NWI Suite fired on invoice
+  // paid instead). Deliberately best-effort and last: a shop with reviews turned
+  // off, a customer with no phone, or an unapplied migration must never stop a
+  // tech from marking their work done. enqueueReviewRequest never throws and
+  // dedupes on job_id, so a re-advance cannot double-text a customer.
+  if (advancedTo === 'completed') {
+    try {
+      await enqueueReviewRequest(supabase, ctx.shop.id, job.id)
+    } catch (err) {
+      console.error('[jobs] review enqueue failed (ignored):', err)
+    }
   }
 
   return Response.json({ job: updated })

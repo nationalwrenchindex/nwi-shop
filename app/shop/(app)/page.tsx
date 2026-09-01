@@ -6,6 +6,7 @@ import { ROLE_LABELS, TIER_LABELS } from '@/lib/permissions'
 import type { JobStatus, ShopInventory, ShopJob, ShopTimeclock } from '@/lib/types'
 import PageHeader from '@/components/page-header'
 import StatCard from '@/components/stat-card'
+import ToolsStrip from './tools/_components/tools-strip'
 
 export const metadata: Metadata = { title: 'Dashboard' }
 
@@ -34,7 +35,10 @@ function StatLink({ href, label }: { href: string; label: string }) {
 }
 
 export default async function ShopDashboardPage() {
-  const { shop, tech, role, permissions, subscription } = await requireShop()
+  // shopType + tier come straight off the context: it already resolves the
+  // subscription row over the profile fallback, so the tools strip and the plan
+  // label below cannot disagree about what this shop is on.
+  const { shop, tech, role, permissions, shopType, tier } = await requireShop()
   const supabase = await createClient()
 
   const openJobs = await safeCount(async () => {
@@ -147,6 +151,10 @@ export default async function ShopDashboardPage() {
             </ul>
           )}
         </section>
+
+        {/* Tools are gated by shop type and tier, never by role — a tech gets
+            the same strip a manager does. */}
+        <ToolsStrip shopType={shopType} tier={tier} />
       </div>
     )
   }
@@ -199,8 +207,6 @@ export default async function ShopDashboardPage() {
       })
     : 0
 
-  const tier = subscription?.tier ?? shop.subscription_tier
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -251,6 +257,8 @@ export default async function ShopDashboardPage() {
           />
         )}
       </div>
+
+      <ToolsStrip shopType={shopType} tier={tier} />
     </div>
   )
 }
