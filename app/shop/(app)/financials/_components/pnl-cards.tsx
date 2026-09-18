@@ -56,13 +56,12 @@ function Stat({
 }
 
 export default function PnlCards({
-  pnl, parts, labor, partsError, laborError,
+  pnl, parts, labor, laborError,
 }: {
   pnl:         Pnl
+  /** Cost of parts billed this period, off the same summary as SummaryCards. */
   parts:       PartsCost
   labor:       LaborCost
-  /** Non-null when the parts query failed - its cost is a placeholder zero. */
-  partsError:  string | null
   /** Non-null when the timeclock or tech query failed - labor is a placeholder. */
   laborError:  string | null
 }) {
@@ -86,16 +85,13 @@ export default function PnlCards({
         </p>
       </div>
 
-      {/* One banner per failed cost query. Same amber treatment the invoice error
-          uses: the shop_* migrations are applied by hand and a missing table must
-          not take the page down - but a $0 cost that is really a failure has to be
-          called out, or the margin below reads as good news. */}
-      {partsError && (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Could not load parts cost for this period: {partsError} — parts cost is
-          shown as $0.00 and gross profit is overstated.
-        </div>
-      )}
+      {/* Labor is the only cost with a query of its own, so it is the only one that
+          can fail on its own. Same amber treatment the invoice error uses: the
+          shop_* migrations are applied by hand and a missing table must not take
+          the page down - but a $0 cost that is really a failure has to be called
+          out, or the margin below reads as good news. Parts cost needs no banner:
+          it comes off the same summary as the cards above, so if the invoice query
+          failed, the error at the top of the page already says so. */}
       {laborError && (
         <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           Could not load labor cost for this period: {laborError} — labor cost is
@@ -112,11 +108,7 @@ export default function PnlCards({
         <Stat
           label="Parts cost"
           value={formatMoney(pnl.partsCost)}
-          hint={
-            partsError
-              ? 'Unavailable for this period'
-              : `Inventory consumed · ${parts.txCount.toLocaleString()} issue${parts.txCount === 1 ? '' : 's'}`
-          }
+          hint={`At cost · ${parts.lineCount.toLocaleString()} part line${parts.lineCount === 1 ? '' : 's'} billed`}
           tone="cost"
         />
         <Stat
@@ -178,8 +170,8 @@ export default function PnlCards({
         <p className="mt-3 text-xs text-slate-500">
           Labor is shop-clock hours × pay rate, with hours past {OVERTIME_THRESHOLD_HOURS} in a
           work week paid at {OVERTIME_MULTIPLIER}×. Job punches are excluded because they overlap
-          the shop clock. Parts cost is inventory issued to jobs at unit cost, not the parts price
-          billed to the customer.
+          the shop clock. Parts cost is the cost of the parts billed on this period&rsquo;s invoices,
+          not the price charged for them — the same figure as Parts cost above.
         </p>
       </div>
     </section>

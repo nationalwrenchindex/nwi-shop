@@ -13,7 +13,7 @@ import {
   summarize,
   type RangePreset,
 } from '@/lib/shop/quickbooks'
-import { computePnl, fetchLaborCost, fetchPartsCost } from '@/lib/shop/pnl'
+import { computePnl, fetchLaborCost, partsCostFrom } from '@/lib/shop/pnl'
 import { fetchInvoices } from './_data'
 import RangeSelector from './_components/range-selector'
 import SummaryCards from './_components/summary-cards'
@@ -56,20 +56,22 @@ export default async function FinancialsPage({ searchParams }: Props) {
   const { invoices, error } = await fetchInvoices(shop.id, range.from, range.to)
   const summary = summarize(invoices, shop)
 
-  // The cost side of the P&L, over the SAME range as everything above - the period
-  // selector in the URL is the only one on this page. Each fetcher degrades to a
-  // zero plus an error string for the same hand-applied-migration reason, so the
-  // two run in parallel and neither can take the page down.
-  const [parts, labor] = await Promise.all([
-    fetchPartsCost(shop.id, range.from, range.to),
-    fetchLaborCost(shop.id, range.from, range.to),
-  ])
+  // Labor is the only cost the P&L has to go and fetch. It degrades to a zero plus
+  // an error string for the same hand-applied-migration reason as everything else,
+  // so a missing table renders a banner rather than taking the page down.
+  const labor = await fetchLaborCost(shop.id, range.from, range.to)
 
-  // Revenue is REUSED, never re-queried: `summary.revenue` is pre-tax invoiced
-  // revenue, the same figure the cards above and the QuickBooks export below show.
+  // Revenue AND parts cost are both REUSED from `summary`, never re-queried.
+  // Parts cost used to come from the inventory ledger, which measures stock
+  // movement rather than what was billed - so a part added straight to a job (the
+  // ordinary path, which writes no ledger row) was missing from it, and this block
+  // contradicted the Parts cost shown in SummaryCards directly above. Taking both
+  // figures off the same summary makes that disagreement impossible.
+  const parts = partsCostFrom(summary, invoices)
+
   const pnl = computePnl({
     revenue:   summary.revenue,
-    partsCost: parts.value.cost,
+    partsCost: parts.cost,
     laborCost: labor.value.cost,
   })
 
@@ -97,9 +99,8 @@ export default async function FinancialsPage({ searchParams }: Props) {
 
       <PnlCards
         pnl={pnl}
-        parts={parts.value}
+        parts={parts}
         labor={labor.value}
-        partsError={parts.error}
         laborError={labor.error}
       />
 

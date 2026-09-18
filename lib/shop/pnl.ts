@@ -8,6 +8,12 @@
 // cash/paid basis - would make two screens disagree about the same period. The P&L
 // therefore runs on an ACCRUAL basis and the UI labels it as such.
 //
+// Parts cost is not queried here either - see `partsCostFrom`. It comes off the
+// same `FinancialSummary` the cards above it use, because deriving it separately
+// is exactly the bug that put two different parts costs on one screen.
+//
+// That leaves LABOR as the only thing this file actually fetches.
+//
 // Two halves, deliberately separated:
 //   * `fetch*` do I/O and never throw. They return `{ value, error }` exactly like
 //     `fetchInvoices`, because the shop_* migrations are applied BY HAND and a
@@ -17,7 +23,11 @@
 //     math is unit-testable the same way `lib/shop/quickbooks.ts` is.
 
 import { createClient } from '@/lib/supabase/server'
-import { nextDay } from '@/lib/shop/quickbooks'
+import {
+  nextDay,
+  type ExportInvoice,
+  type FinancialSummary,
+} from '@/lib/shop/quickbooks'
 import {
   buildPayroll,
   toHours,
@@ -64,79 +74,55 @@ function rangeEndInstant(to: string): Date {
 // --- Parts cost -------------------------------------------------------------
 
 export interface PartsCost {
-  /** Dollars of inventory consumed in the period. Always >= 0. */
-  cost:     number
-  /** How many `used` ledger rows fed the figure - shown as a provenance hint. */
-  txCount:  number
+  /** Cost of the parts billed on this period's invoices. Always >= 0. */
+  cost:       number
+  /** How many part lines fed the figure - shown as a provenance hint. */
+  lineCount:  number
 }
 
-export const EMPTY_PARTS_COST: PartsCost = { cost: 0, txCount: 0 }
+export const EMPTY_PARTS_COST: PartsCost = { cost: 0, lineCount: 0 }
 
 /**
- * Sums the parts-cost side of the inventory ledger.
+ * Parts cost for the period, taken from THE INVOICES THEMSELVES.
  *
- * TWO THINGS ABOUT `shop_inventory_transactions.cost` THAT ARE EASY TO GET WRONG:
+ * WHY NOT THE INVENTORY LEDGER — this was the original implementation and it was
+ * wrong. `shop_inventory_transactions` measures STOCK MOVEMENT, not the cost of
+ * what was billed, and the two diverge in normal use:
  *
- *  1. It is ALREADY EXTENDED. The write paths store `quantity * unit_cost`
- *     (`app/api/shop/inventory/use/route.ts`, `.../[id]/receive/route.ts`), not a
- *     per-unit price. There is no `cost_price` column. Multiplying `cost` by
- *     `quantity` again would square the quantity and inflate the P&L wildly.
+ *   * Adding a part to a job through `POST /api/shop/jobs/[id]/line-items` bills
+ *     the customer and stamps `unit_cost` on the line, but writes NO ledger row
+ *     and does not decrement the shelf - only `/api/shop/inventory/use` does. So
+ *     a part sold the ordinary way was invisible to a ledger-based parts cost,
+ *     and gross profit came out overstated by exactly its cost.
+ *   * A part issued in one period and invoiced in the next lands in the wrong
+ *     period entirely, because the ledger is dated by issue and revenue by
+ *     `invoiced_at`.
  *
- *  2. It is SIGNED, following `quantity`. Stock leaving the shelf is written
- *     negative (`cost: -roundCents(quantity * part.unit_cost)` on type 'used');
- *     a receipt is written positive. So consumed cost is `abs(sum)`.
+ * Worse, the figure contradicted the one on screen directly above it:
+ * `SummaryCards` has always derived parts cost from the line items via
+ * `summarize()`, so the same page showed two different parts costs. Observed on
+ * live data at a $379.00 gap from a single job.
  *
- * Only `type = 'used'` is counted:
- *   * `received` is a purchase INTO inventory - an asset swap, not an expense of
- *     the period. It becomes cost when it is used.
- *   * `adjusted` is a cycle-count/shrink correction, not a job cost.
- *   * `returned` is NOT netted against the total. Nothing in the codebase writes a
- *     'returned' row today (the value exists only in the InventoryTxType union and
- *     in INVENTORY_TX_TYPES), so its sign convention is unverified. Netting a row
- *     whose sign is a guess could just as easily double the cost as reduce it, and
- *     the sum is zero either way until a write path exists. When one is added,
- *     revisit this with its sign in hand.
+ * So the number is no longer derived independently AT ALL. It is taken from the
+ * `FinancialSummary` the page already computed, which makes a disagreement
+ * between the two blocks structurally impossible rather than merely unlikely, and
+ * costs no extra query. `summarize()` is the single source of truth for what a
+ * period's parts cost is; this function only attaches the provenance count.
  */
-export async function fetchPartsCost(
-  shopId: string,
-  from: string,
-  to: string,
-): Promise<CostFetch<PartsCost>> {
-  const supabase = await createClient()
-
-  const { data, error, count } = await supabase
-    .from('shop_inventory_transactions')
-    .select('cost', { count: 'exact' })
-    .eq('shop_id', shopId)
-    .eq('type', 'used')
-    .gte('created_at', `${from}T00:00:00.000Z`)
-    .lt('created_at', rangeEndInstant(to).toISOString())
-    .limit(MAX_COST_ROWS)
-
-  if (error) return { value: EMPTY_PARTS_COST, error: error.message }
-
-  const rows = (data ?? []) as { cost: number | null }[]
-
-  // A silently truncated page would understate cost, which is the one failure mode
-  // a P&L must never have quietly. Report it instead of returning a short total.
-  if (typeof count === 'number' && count > rows.length) {
-    return {
-      value: EMPTY_PARTS_COST,
-      error: `${count.toLocaleString()} parts transactions in this period exceed the ${MAX_COST_ROWS.toLocaleString()}-row query limit. Narrow the range.`,
+export function partsCostFrom(
+  summary: Pick<FinancialSummary, 'partsCost'>,
+  invoices: ExportInvoice[],
+): PartsCost {
+  let lineCount = 0
+  for (const inv of invoices) {
+    for (const li of inv.line_items ?? []) {
+      if (li.type === 'part') lineCount += 1
     }
   }
 
-  return { value: computePartsCost(rows), error: null }
-}
-
-/** Pure half of `fetchPartsCost`: `abs(sum(cost))` over already-filtered rows. */
-export function computePartsCost(rows: { cost: number | null }[]): PartsCost {
-  let signed = 0
-  for (const row of rows) signed += num(row.cost)
-
   return {
-    cost:    round2(Math.abs(signed)),
-    txCount: rows.length,
+    cost:      round2(num(summary.partsCost)),
+    lineCount,
   }
 }
 
