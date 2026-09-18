@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="NWI Shop">
+  <title>NWI Shop</title>
+  <!-- NWI Shop mark. The letterforms are STROKED PATHS, not <text>: a favicon is
+       rasterised by browsers, by the .ico build step and by whatever renders a
+       bookmark bar, and a font-family reference resolves differently in each
+       (often to nothing at all in a headless rasteriser). Geometry always renders.
+       N, W and I are pure straight lines, so this costs nothing in fidelity. -->
+  <rect width="64" height="64" rx="12" fill="#0a1628"/>
+  <!-- Stroke weight and letter gaps are balanced against each other: at 4px the
+       counters inside N and W stay open at 16px, and the 4px gaps keep the three
+       glyphs from fusing into one orange block. Visual span is x 13-51, centred
+       on 32. A miter join keeps the vertices sharp instead of rounding them off. -->
+  <g fill="none" stroke="#FF6600" stroke-width="4"
+     stroke-linecap="butt" stroke-linejoin="miter">
+    <!-- Cap height is 26 of 64 rather than a timid 22: at 16px every unit of
+         glyph height is a whole pixel of legibility, and the rounded plate still
+         has enough margin not to look cramped. -->
+    <!-- N -->
+    <path d="M14.5 45 V19 L23.5 45 V19"/>
+    <!-- W: the centre vertex rises to y=25, near the cap line. Dropped much
+         below that the two halves read as a single V with a nick in it. -->
+    <path d="M31 19 L33.75 45 L36.5 25 L39.25 45 L42 19"/>
+    <!-- I -->
+    <path d="M49.5 19 V45"/>
+  </g>
+</svg>
