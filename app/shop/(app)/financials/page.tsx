@@ -13,9 +13,11 @@ import {
   summarize,
   type RangePreset,
 } from '@/lib/shop/quickbooks'
+import { computePnl, fetchLaborCost, fetchPartsCost } from '@/lib/shop/pnl'
 import { fetchInvoices } from './_data'
 import RangeSelector from './_components/range-selector'
 import SummaryCards from './_components/summary-cards'
+import PnlCards from './_components/pnl-cards'
 import InvoiceTable from './_components/invoice-table'
 import QuickbooksExport from './_components/quickbooks-export'
 
@@ -54,6 +56,23 @@ export default async function FinancialsPage({ searchParams }: Props) {
   const { invoices, error } = await fetchInvoices(shop.id, range.from, range.to)
   const summary = summarize(invoices, shop)
 
+  // The cost side of the P&L, over the SAME range as everything above - the period
+  // selector in the URL is the only one on this page. Each fetcher degrades to a
+  // zero plus an error string for the same hand-applied-migration reason, so the
+  // two run in parallel and neither can take the page down.
+  const [parts, labor] = await Promise.all([
+    fetchPartsCost(shop.id, range.from, range.to),
+    fetchLaborCost(shop.id, range.from, range.to),
+  ])
+
+  // Revenue is REUSED, never re-queried: `summary.revenue` is pre-tax invoiced
+  // revenue, the same figure the cards above and the QuickBooks export below show.
+  const pnl = computePnl({
+    revenue:   summary.revenue,
+    partsCost: parts.value.cost,
+    laborCost: labor.value.cost,
+  })
+
   return (
     <div className="space-y-6">
       <header>
@@ -75,6 +94,14 @@ export default async function FinancialsPage({ searchParams }: Props) {
       )}
 
       <SummaryCards summary={summary} />
+
+      <PnlCards
+        pnl={pnl}
+        parts={parts.value}
+        labor={labor.value}
+        partsError={parts.error}
+        laborError={labor.error}
+      />
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-slate-900">Invoices</h2>

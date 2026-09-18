@@ -3,9 +3,11 @@ import Link from 'next/link'
 import { requireShop } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { ROLE_LABELS, TIER_LABELS } from '@/lib/permissions'
+import { fetchShopEfficiency, type ShopEfficiency } from '@/lib/shop/efficiency'
 import type { JobStatus, ShopInventory, ShopJob, ShopTimeclock } from '@/lib/types'
 import PageHeader from '@/components/page-header'
 import StatCard from '@/components/stat-card'
+import EfficiencyCard from './_components/efficiency-card'
 import ToolsStrip from './tools/_components/tools-strip'
 
 export const metadata: Metadata = { title: 'Dashboard' }
@@ -207,6 +209,22 @@ export default async function ShopDashboardPage() {
       })
     : 0
 
+  // Also money-shaped: billed labor hours are revenue in another unit, so this
+  // rides the same manager-only gate as `readyToInvoice`. A foreman has
+  // viewAllJobs and reaches this branch, but never viewFinancials.
+  //
+  // `fetchShopEfficiency` already degrades a failed query to zero hours, so the
+  // catch here is belt and braces for the case where the module itself cannot
+  // reach the database at all. Either way the dashboard renders.
+  let efficiency: ShopEfficiency | null = null
+  if (permissions.viewFinancials) {
+    try {
+      efficiency = await fetchShopEfficiency(supabase, shop.id, new Date())
+    } catch {
+      efficiency = null
+    }
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -257,6 +275,8 @@ export default async function ShopDashboardPage() {
           />
         )}
       </div>
+
+      {efficiency ? <EfficiencyCard efficiency={efficiency} /> : null}
 
       <ToolsStrip shopType={shopType} tier={tier} />
     </div>
