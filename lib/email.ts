@@ -5,7 +5,29 @@
 import { Resend } from 'resend'
 import { APP_URL, PRODUCT_NAME, SUPPORT_EMAIL } from '@/lib/branding'
 
-const FROM = `${PRODUCT_NAME} <onboarding@resend.dev>`
+/**
+ * The envelope sender for every outbound message.
+ *
+ * This was `onboarding@resend.dev`, which is Resend's SHARED SANDBOX address: it
+ * only ever delivers to the Resend account's own owner. Every invoice emailed to
+ * a real customer was silently dropped — and because `sendEmail` swallows its
+ * failures by contract, the send route still reported success and stamped
+ * `invoice_sent_at`, so the shop was told the customer had the invoice when
+ * nobody had been mailed at all.
+ *
+ * The default below is a domain VERIFIED on the account (checked against the
+ * Resend domains API), so it works with no env change. `RESEND_FROM` overrides
+ * it — set it to a full `Name <address@domain>` string, and only ever to a
+ * domain that is verified in Resend, or Resend rejects the send outright.
+ *
+ * NOTE: this is not `SUPPORT_EMAIL` (support@nwishop.com). That domain is NOT
+ * registered in Resend and cannot send. It stays a reply-to/contact address in
+ * the email footer, which is a mailto link and needs no verification.
+ */
+const DEFAULT_FROM = `${PRODUCT_NAME} <shop@nationalwrenchindex.com>`
+
+const FROM = process.env.RESEND_FROM?.trim() || DEFAULT_FROM
+
 const FOUNDER_INBOX = 'nwisuite@nationalwrenchindex.com'
 
 function getResend(): Resend | null {
