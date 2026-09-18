@@ -59,14 +59,22 @@ const FEATURES: Feature[] = [
       (type) => `${SHOP_TYPE_LABELS[type]}: ${toolNamesFor(type)}`,
     ),
   },
+  // NWI Fleet Pro is a SEPARATE product: its own site, its own accounts, its own
+  // billing. There is no Fleet Pro integration code in this repository — nothing
+  // is sent there and nothing is read back. This section therefore describes what
+  // Fleet Pro does for the FLEET, and what an Elite shop actually gets (a place
+  // in the app that explains it and links out). It must not say "connect",
+  // "sync", "line up with your work orders" or "included", because a shop that
+  // believes its work orders already reach a customer's fleet record will stop
+  // filing them somewhere real. Same rule as app/shop/(app)/tools/fleet-pro.
   {
-    eyebrow: 'Fleet Pro integration',
-    title: 'Fleet work stops living in a separate spreadsheet.',
-    body: 'Elite shops connect to Fleet Pro so fleet customers, unit numbers and service history line up with the work orders your techs are already writing.',
+    eyebrow: 'NWI Fleet Pro',
+    title: 'Your fleet customers get software of their own.',
+    body: 'NWI Fleet Pro is a separate product for the fleets you already service — not a module inside NWI Shop. Elite shops get a page that walks through what it does and hands you the link to set a fleet customer up on it.',
     points: [
-      'Fleet units matched to customer vehicles',
-      'Service history that follows the unit',
-      'Included with NWI Shop Elite',
+      'Live unit visibility for the fleet owner',
+      'PM schedules tracked by miles, hours or date',
+      'Sold and set up separately — not an NWI Shop integration',
     ],
   },
 ]

@@ -81,7 +81,9 @@ export interface ShopPlan {
 const TAGLINES: Record<ShopTier, string> = {
   starter: 'One shop, a small crew, and a truck on the road.',
   pro:     'A full floor running multiple bays and a mobile fleet.',
-  elite:   'No ceilings, plus Fleet Pro and access to Foreman AI.',
+  // "access to", not "plus": Fleet Pro and Foreman AI are BOTH sold separately
+  // from the plan. Elite unlocks the door to each, it does not include either.
+  elite:   'No ceilings, plus access to NWI Fleet Pro and Foreman AI.',
 }
 
 function limitText(limit: number | null, singular: string, plural: string): string {
@@ -101,7 +103,13 @@ function sharedFeaturesFor(tier: ShopTier): string[] {
     'Built-in tech timeclock',
     'Professional invoicing',
   ]
-  if (limits.fleetPro) bullets.push('Fleet Pro integration')
+  // NOT "Fleet Pro integration". NWI Fleet Pro is a SEPARATE product with its
+  // own site, accounts and billing, and there is no integration code in this
+  // repository — nothing syncs either way. What Elite actually unlocks is
+  // /shop/tools/fleet-pro, which explains Fleet Pro and links the shop out to
+  // set a fleet customer up. The bullet says exactly that and no more: a plan
+  // bullet promising an integration is the line a shop would buy Elite for.
+  if (limits.fleetPro) bullets.push('NWI Fleet Pro referral for fleet customers (sold separately)')
   // NOTE: foremanAi is intentionally NOT pushed as a plan feature. See the header.
   return bullets
 }

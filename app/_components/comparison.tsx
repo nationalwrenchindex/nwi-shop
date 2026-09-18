@@ -67,7 +67,17 @@ const ROWS: Row[] = [
     fullbay: 'Priced per tech',
     shopmonkey: 'Priced per user',
   },
-  { label: 'Fleet Pro integration',             nwi: 'Elite', fullbay: false, shopmonkey: false },
+  // Names the PRODUCT, not an integration. There is no Fleet Pro integration in
+  // NWI Shop — nothing syncs — so "Fleet Pro integration: Elite" claimed a
+  // differentiator that does not exist. Naming NWI Fleet Pro also keeps the two
+  // competitor cells honest: they do not offer our product, whatever fleet
+  // features of their own they may have.
+  {
+    label: 'NWI Fleet Pro for your fleet customers',
+    nwi: 'Elite (sold separately)',
+    fullbay: false,
+    shopmonkey: false,
+  },
   {
     label: 'AI shop foreman',
     nwi: 'Optional $59/mo add-on',

@@ -120,12 +120,19 @@ export const TOOL_COPY: Record<ShopFeature, ToolCopy> = {
       'Text you the details and the customer a confirmation',
     ],
   },
+  // fleet_pro is the one entry that is NOT an NWI Shop tool. NWI Fleet Pro is a
+  // separate product, and /shop/tools/fleet-pro is an outbound referral to it —
+  // there is no integration code, so nothing is posted, tracked or shared from
+  // this account. `description` renders on the live card (tool-card.tsx), so it
+  // says whose product this is rather than implying a feature of this one, and
+  // every `planned` line describes what Fleet Pro does on ITS OWN side.
   fleet_pro: {
-    description: 'Serve fleet customers with automatic service records.',
+    description: 'Fleet software for your fleet customers — a separate NWI product.',
     planned: [
-      'Post completed work to the unit history the fleet owner sees, automatically',
-      'Track PM schedules per unit and flag what is coming due',
-      'Give the fleet a read-only view of everything you have done for them',
+      'Your fleet customer sees every unit they own in one list, on the Fleet Pro site',
+      'Work entered in Fleet Pro is filed against the unit, not a paper folder',
+      'Fleet Pro tracks each unit’s PM schedule by miles, hours or date',
+      'Set up on the Fleet Pro site with its own account and billing',
     ],
   },
 }
